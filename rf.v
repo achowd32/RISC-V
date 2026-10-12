@@ -8,19 +8,16 @@ reg [31:0] reg_file [31:0];
 
 integer i;
 initial begin
-	reg_file[0] = 0;
-	reg_file[1] = 0;
-	reg_file[2] = 1024;
-	
-	for(i = 3; i < 32; i = i + 1) begin
+	for(i = 0; i < 32; i = i + 1) begin
 		reg_file[i] = 0;
 	end
+	reg_file[2] = 1024;
 end
 
-always @*
-begin
-	rout_1 = reg_file[rreg_1];
-	rout_2 = reg_file[rreg_2];
+wire is_write = (wenable && wreg != 5'b00000);
+always @* begin
+	rout_1 = (is_write && wreg == rreg_1) ? wdata : reg_file[rreg_1];
+	rout_2 = (is_write && wreg == rreg_2) ? wdata : reg_file[rreg_2];
 end
 
 always @(posedge clk)

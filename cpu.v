@@ -1,14 +1,15 @@
 `timescale 1 ps / 1 ps
 
-module cpu(CLOCK_50);
-input CLOCK_50;
+module cpu (
+	input clk
+);
 
 reg [31:0] pc, pc_f, pc_ff;
 reg [31:0] rom [23:0];
 
 wire rst, outclock_0, outclock_1;
 assign rst = 0;
-pll pll(.refclk(CLOCK_50), .rst(rst), .outclk_0(outclock_0));
+assign outclock_0 = clk;
 assign outclock_1 = ~outclock_0;
 
 integer i;
@@ -18,114 +19,26 @@ initial begin
 	rout_1f = 0;
 	rout_2f = 0;
 	
-	// initialize rom
-	
-	// program 1: given in part a of assignment
-	/*
-	rom[0] = 32'h00000093;
-	rom[1] = 32'h01000113;
-	rom[2] = 32'h06400193;
-	rom[3] = 32'h00800213;
-	rom[4] = 32'h002082b3;
-	rom[5] = 32'h00418333;
-	rom[6] = 32'h0050a023;
-	rom[7] = 32'h00612223;
-	rom[8] = 32'h0000007f;
-	*/
-	
-	// program 2: given in part a of assignment
-	/*
-	rom[0] = 32'h00800293;
-	rom[1] = 32'h00f00313;
-	rom[2] = 32'h0062a023;
-	rom[3] = 32'h005303b3;
-	rom[4] = 32'h40530e33;
-	rom[5] = 32'h03c384b3;
-	rom[6] = 32'h00428293;
-	rom[7] = 32'hffc2a903;
-	rom[8] = 32'h41248933;
-	rom[9] = 32'h00291913;
-	rom[10] = 32'h0122a023;
-	rom[11] = 32'h0000007f;
-	*/
-	
-	// program 3: testing and/or, written by me
-	/*
-	rom[0] = 32'h00700093; // addi x1, x0, 7
-	rom[1] = 32'h01200113; // addi x2, x0, 18
-	rom[2] = 32'h0020f1b3; // and x3, x1, x2
-	rom[3] = 32'h0020e233; // or x4, x1, x2
-	rom[4] = 32'h00302023; // sw x3, 0(x0)
-	rom[5] = 32'h00402223; // sw x4, 4(x0)
-	rom[6] = 32'h0000007f; // halt
-	*/
-	
-	// program 4: factorial
-	
-	/*rom[0] = 32'h00600513;
-	rom[1] = 32'h00c000ef;
-	rom[2] = 32'h00a02023;
-	rom[3] = 32'h0000007f;
-	rom[4] = 32'hff810113;
-	rom[5] = 32'h00112223;
-	rom[6] = 32'h00a12023;
-	rom[7] = 32'h00100293;
-	rom[8] = 32'h00551863;
-	rom[9] = 32'h00100513;
-	rom[10] = 32'h00810113;
-	rom[11] = 32'h00008067;
-	rom[12] = 32'hfff50513;
-	rom[13] = 32'hfddff0ef;
-	rom[14] = 32'h00012303;
-	rom[15] = 32'h00412083;
-	rom[16] = 32'h00810113;
-	rom[17] = 32'h02650533;
-	rom[18] = 32'h00008067;*/
-	
-	// factorial with noops
-	rom[0] = 32'h00600513;
-	rom[1] = 32'h0c000ef;
-	rom[2] = 32'h00a02023;
+	// factorial
+	rom[0] = 32'h00600513; // addi x10, x0, 6
+	rom[1] = 32'h00c000ef; // jal x1, 12 (to rom[4])
+	rom[2] = 32'h00a02023; // sw x10, 0(x0)
 	rom[3] = 32'h0000007f; // HALT
-	rom[4] = 32'hff810113;
-	rom[5] = 32'h00000033; // NO-OP
-	rom[6] = 32'h00000033; // NO-OP
-	rom[7] = 32'h00112223;
-	rom[8] = 32'h00a12023;
-	rom[9] = 32'h00100293;
-	rom[10] = 32'h00000033; // NO-OP
-	rom[11] = 32'h00551863;
-	rom[12] = 32'h00100513;
-	rom[13] = 32'h00810113;
-	rom[14] = 32'h00008067;
-	rom[15] = 32'hfff50513;
-	rom[16] = 32'hfd1ff0ef; 
-	rom[17] = 32'h00012303;
-	rom[18] = 32'h00412083;
-	rom[19] = 32'h00810113;
-	rom[20] = 32'h02650533;
-	rom[21] = 32'h00008067;
-	
-	// program 5: fibonacci
-	/*
-	rom[0] = 32'h00100293;
-	rom[1] = 32'h06400313;
-	rom[2] = 32'h00532023;
-	rom[3] = 32'h00532223;
-	rom[4] = 32'h06800393;
-	rom[5] = 32'h06c00e13;
-	rom[6] = 32'h01200e93;
-	rom[7] = 32'h00032f03;
-	rom[8] = 32'h0003af83;
-	rom[9] = 32'h01ff0f33;
-	rom[10] = 32'h01ee2023;
-	rom[11] = 32'h00430313;
-	rom[12] = 32'h00438393;
-	rom[13] = 32'h004e0e13;
-	rom[14] = 32'hfffe8e93;
-	rom[15] = 32'hfe0e90e3;
-	rom[16] = 32'h0000007f;
-	*/
+	rom[4] = 32'hff810113; // addi x2, x2, -8
+	rom[5] = 32'h00112223; // sw x1, 4(x2)
+	rom[6] = 32'h00a12023; // sw x10, 0(x2)
+	rom[7] = 32'h00100293; // addi x5, x0, 1
+	rom[8] = 32'h00551863; // bne x10, x5, 16 (to rom[12])
+	rom[9] = 32'h00100513; // addi x10, x0, 1
+	rom[10] = 32'h00810113; // addi x2, x2, 8
+	rom[11] = 32'h00008067; // jalr x0, 0(x1)
+	rom[12] = 32'hfff50513; // addi x10, x10, -1
+	rom[13] = 32'hfddff0ef; // jal x1, -36 (to rom[4])
+	rom[14] = 32'h00012303; // lw x6, 0(x2)
+	rom[15] = 32'h00412083; // lw x1, 4(x2)
+	rom[16] = 32'h00810113; // addi x2, x2, 8
+	rom[17] = 32'h02650533; // mul x10, x10, x6
+	rom[18] = 32'h00008067; // jalr x0, 0(x1)
 	
 end
 
@@ -140,10 +53,26 @@ wire [31:0] rout_1, rout_2;
 reg [4:0] wreg_f, wreg_ff;
 reg regwrite_f, regwrite_ff;
 wire [4:0] rreg_1, rreg_2;
+reg [4:0] rreg_1f, rreg_2f;
 assign rreg_1 = instr[19:15];
 assign rreg_2 = instr[24:20];
+assign is_write_ff = regwrite_ff && (wreg_ff != 5'b00000);
 
-RF rf(.clk(outclock_0), .rreg_1(rreg_1), .rreg_2(rreg_2), .wreg(wreg_ff), .wdata(wdata), .wenable(regwrite_ff), .rout_1(rout_1), .rout_2(rout_2));
+always @(posedge outclock_0) begin
+	rreg_1f <= rreg_1;
+	rreg_2f <= rreg_2;
+end
+
+RF rf (
+	.clk(outclock_0),       // clk
+	.rreg_1(rreg_1),	    // read reg 1 
+	.rreg_2(rreg_2),		// read reg 2
+	.wreg(wreg_ff),			// write reg (ff)
+	.wdata(wdata),			// write data
+	.wenable(regwrite_ff),  // enable reg write
+	.rout_1(rout_1),		// read out 1
+	.rout_2(rout_2)			// read out 2
+);
 
 wire [4:0] wreg = instr[11:7];
 reg [31:0] rout_1f, rout_2f, rout_2ff;
@@ -151,7 +80,7 @@ always @(posedge outclock_0)
 begin
 	rout_1f <= rout_1;
 	rout_2f <= rout_2;
-	rout_2ff <= rout_2f;
+	rout_2ff <= (rreg_2f == wreg_ff && is_write_ff) ? wdata : rout_2f;
 	wreg_f <= wreg;
 	wreg_ff <= wreg_f;
 end
@@ -224,12 +153,19 @@ wire [2:0] opcode;
 ALU_CONTROL alu_control(.instr(instr_f), .aluop(aluop_f), .opcode(opcode));
 
 // alu
-wire signed [31:0] alu_2;
-wire signed [31:0] alu_2f;
-assign alu_2f = alusrc_f ? imm_f : rout_2f;
+reg signed [31:0] alu_1f, alu_2f;
+always @* begin
+	if (alusrc_f) begin
+		alu_2f = imm_f;
+	end else begin
+		alu_2f = (rreg_2f == wreg_ff && is_write_ff) ? wdata : rout_2f;
+	end
+
+	alu_1f = (rreg_1f == wreg_ff && is_write_ff) ? wdata : rout_1f;
+end
 
 wire signed [31:0] alu_out;
-ALU alu(.in1(rout_1f), .in2(alu_2f), .opcode(opcode), .out(alu_out));
+ALU alu(.in1(alu_1f), .in2(alu_2f), .opcode(opcode), .out(alu_out));
 // ram
 wire [31:0] mem_out;
 reg [31:0] mem_addr;

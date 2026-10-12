@@ -2,4 +2,4 @@
 
 This is a project completed as part of Brown's ENGN1640 course. There was no stencil, and everything was written from scratch without the use of AI tools. This has been one of my favorite projects I've done in school thus far, so I thought it fitting to showcase on my Github.
 
-If I find the time, I'd like to make a few revisions. For one thing, I'd like to clean up the code and organize it a little more. I am also considering (as a learning experience) extending the project incorporate peripherals and clock domain crossing.
+I am currently working on improving this past what I managed to achieve in class. I've already improved the base architecture by eliminating all use of NO-OPS and fixing some minor bugs. In the future, I'd like to refactor the code for cleanliness, write a more thorough testbench, learn and implement more advanced verification techniques, and extend the CPU architecture (perhaps by integrating OoO execution, advanced branch prediction, or another related idea). I hope to see this project evolve as I self-study and learn more digital design.
