@@ -5,14 +5,14 @@ module cpu (
 );
 
 reg [31:0] pc, pc_f, pc_ff;
-reg [31:0] rom [23:0];
 
-wire rst, outclock_0, outclock_1;
-assign rst = 0;
+// ----------- CLOCKS -----------  
+wire outclock_0, outclock_1;
 assign outclock_0 = clk;
 assign outclock_1 = ~outclock_0;
 
 integer i;
+reg [31:0] rom [23:0];
 initial begin
 	regwrite_f = 0;
 	regwrite_ff = 0;
@@ -43,25 +43,19 @@ initial begin
 end
 
 reg [31:0] wdata;
-// fetch
+// ---------------------- STAGE 1: FETCH AND DECODE ----------------------  
+// ----------- FETCH INSTRUCTION -----------  
 wire [31:0] addr = pc >> 2; // pc / 4
 wire [31:0] instr = rom[addr];
 
-// registers
+// ----------- REGISTERS & RF -----------  
 wire regwrite;
 wire [31:0] rout_1, rout_2;
-reg [4:0] wreg_f, wreg_ff;
-reg regwrite_f, regwrite_ff;
-wire [4:0] rreg_1, rreg_2;
-reg [4:0] rreg_1f, rreg_2f;
-assign rreg_1 = instr[19:15];
-assign rreg_2 = instr[24:20];
-assign is_write_ff = regwrite_ff && (wreg_ff != 5'b00000);
 
-always @(posedge outclock_0) begin
-	rreg_1f <= rreg_1;
-	rreg_2f <= rreg_2;
-end
+// decode instruction into register relevant components
+wire [4:0] wreg = instr[11:7]; // register to write to
+wire [4:0] rreg_1 = instr[19:15]; // first register to read from
+wire [4:0] rreg_2 = instr[24:20]; // second register to read from
 
 RF rf (
 	.clk(outclock_0),       // clk
@@ -74,36 +68,18 @@ RF rf (
 	.rout_2(rout_2)			// read out 2
 );
 
-wire [4:0] wreg = instr[11:7];
-reg [31:0] rout_1f, rout_2f, rout_2ff;
-always @(posedge outclock_0)
-begin
-	rout_1f <= rout_1;
-	rout_2f <= rout_2;
-	rout_2ff <= (rreg_2f == wreg_ff && is_write_ff) ? wdata : rout_2f;
-	wreg_f <= wreg;
-	wreg_ff <= wreg_f;
-end
-
-// immediate generator
+// ----------- IMMEDIATE GENERATOR -----------  
 wire [31:0] imm;
 IMMGEN immgen(.instr(instr), .immediate(imm));
 
-reg [31:0] imm_f, imm_ff;
-always @(posedge outclock_0)
-begin
-	imm_f <= imm;
-	imm_ff <= imm_f;
-end
-
-// control unit
+// ----------- CONTROL UNIT -----------  
 wire alusrc, memtoreg, memwrite, beq, bne, jal, jalr, halt;
 wire [1:0] aluop;
 CONTROL control(.instr(instr),
-					 .memtoreg(memtoreg),
-					 .regwrite(regwrite),
-					 .memwrite(memwrite), 
-					 .aluop(aluop));
+				.memtoreg(memtoreg),
+				.regwrite(regwrite),
+				.memwrite(memwrite), 
+				.aluop(aluop));
 
 assign alusrc = (~instr[6] & (~instr[5] | (instr[5] & ~instr[4]))) | jalr;
 assign beq = ~instr[12] & instr[6] & ~instr[2];
@@ -112,42 +88,51 @@ assign jal = ~instr[4] & instr[3];
 assign jalr = ~instr[3] & instr[2];
 assign halt = instr[4] & instr[3];
 
+// ---------------------- TRANSITION 1 ----------------------  
+reg [31:0] imm_f, instr_f;
+reg [4:0] wreg_f, rreg_1f, rreg_2f;
+reg regwrite_f;
+reg [31:0] rout_1f, rout_2f;
 reg alusrc_f, memtoreg_f, memwrite_f, beq_f, bne_f, jal_f, jalr_f, halt_f;
-reg memwrite_ff, memtoreg_ff, beq_ff, bne_ff, jal_ff, jalr_ff, halt_ff;
 reg [1:0] aluop_f; 
 wire flush;
 
-always @(posedge outclock_0)
-begin
+always @(posedge outclock_0) begin
+	// forward immediate through the pipeline stages
+	imm_f <= imm;
+	
+	// forward the read register addresses
+	rreg_1f <= rreg_1;
+	rreg_2f <= rreg_2;
+
+	// forward the read register ouputs
+	rout_1f <= rout_1;
+	rout_2f <= rout_2;
+
+	// forward the write register address
+	wreg_f <= wreg;
+	
+	// forward control signals
 	alusrc_f <= alusrc;
-	memtoreg_f <= memtoreg; memtoreg_ff <= memtoreg_f;
+	memtoreg_f <= memtoreg;
 	aluop_f <= aluop;
 	
-	if(flush) begin
-		regwrite_f <= 0; regwrite_ff <= 0;
-		memwrite_f <= 0; memwrite_ff <= 0;
-		beq_f <= 0; beq_ff <= 0;
-		bne_f <= 0; bne_ff <= 0;
-		jal_f <= 0; jal_ff <= 0;
-		jalr_f <= 0; jalr_ff <= 0;
-		halt_f <= 0; halt_ff <= 0;
-	end else begin
-		regwrite_f <= regwrite; regwrite_ff <= regwrite_f;
-		memwrite_f <= memwrite; memwrite_ff <= memwrite_f;
-		beq_f <= beq; beq_ff <= beq_f;
-		bne_f <= bne; bne_ff <= bne_f;
-		jal_f <= jal; jal_ff <= jal_f;
-		jalr_f <= jalr; jalr_ff <= jalr_f;
-		halt_f <= halt; halt_ff <= halt_f;
-	end
-end
-					 
-// alu control unit
-reg [31:0] instr_f;
-always @(posedge outclock_0)
-begin
+	// forward control signals that may need to be flushed
+	regwrite_f <= ~flush & regwrite;
+	memwrite_f <= ~flush & memwrite;
+	beq_f <= ~flush & beq;
+	bne_f <= ~flush & bne;
+	jal_f <= ~flush & jal;
+	jalr_f <= ~flush & jalr;
+	halt_f <= ~flush & halt;
+
 	instr_f <= instr;
 end
+
+// ---------------------- STAGE 2: EXECUTE ----------------------  
+reg regwrite_ff;
+reg [4:0] wreg_ff;
+wire is_write_ff = regwrite_ff && (wreg_ff != 5'b00000);
 
 wire [2:0] opcode;
 ALU_CONTROL alu_control(.instr(instr_f), .aluop(aluop_f), .opcode(opcode));
@@ -166,15 +151,41 @@ end
 
 wire signed [31:0] alu_out;
 ALU alu(.in1(alu_1f), .in2(alu_2f), .opcode(opcode), .out(alu_out));
-// ram
-wire [31:0] mem_out;
-reg [31:0] mem_addr;
+
+// ---------------------- TRANSITION 2 ----------------------  
+reg memtoreg_ff, memwrite_ff, beq_ff, bne_ff, jal_ff, jalr_ff, halt_ff;
+reg [31:0] imm_ff, mem_addr, rout_2ff;
 reg signed [31:0] alu_out_f;
-always @(posedge outclock_0) 
+
+always @(posedge outclock_0)
 begin
+	// general signals
+	memtoreg_ff <= memtoreg_f;
+	imm_ff <= imm_f;
+	wreg_ff <= wreg_f;
+
+	// control signals
+	regwrite_ff <= ~flush & regwrite_f;
+	memwrite_ff <= ~flush & memwrite_f;
+	beq_ff <= ~flush & beq_f;
+	bne_ff <= ~flush & bne_f;
+	jal_ff <= ~flush & jal_f;
+	jalr_ff <= ~flush & jalr_f;
+	halt_ff <= ~flush & halt_f;
+
+	// memory stuff
 	mem_addr <= alu_out >> 2;
 	alu_out_f <= alu_out;
+
+	// forward from stage 3 to stage 2 if necessary
+	// used in case of a SW instruction
+	rout_2ff <= (rreg_2f == wreg_ff && is_write_ff) ? wdata : rout_2f;
+	
 end
+
+// ---------------------- STAGE 3: MEMORY AND WRITEBACK ----------------------  
+
+wire [31:0] mem_out;
 wire not_zero_flag = |alu_out_f;
 ram ram(.address(mem_addr), .clock(outclock_1), .data(rout_2ff), .wren(memwrite_ff), .q(mem_out));
 
